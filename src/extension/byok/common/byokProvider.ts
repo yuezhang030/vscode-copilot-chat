@@ -146,6 +146,9 @@ export function resolveModelInfo(modelId: string, providerName: string, knownMod
 	if (knownModelInfo?.requestHeaders && Object.keys(knownModelInfo.requestHeaders).length > 0) {
 		modelInfo.requestHeaders = { ...knownModelInfo.requestHeaders };
 	}
+	if (knownModelInfo?.editTools && knownModelInfo.editTools.length > 0) {
+		modelInfo.editTools = knownModelInfo.editTools;
+	}
 	return modelInfo;
 }
 
@@ -157,6 +160,12 @@ export function byokKnownModelsToAPIInfo(providerName: string, knownModels: BYOK
 }
 
 export function byokKnownModelToAPIInfo(providerName: string, id: string, capabilities: BYOKModelCapabilities): LanguageModelChatInformation {
+	type LanguageModelChatInformationWithEditTools = LanguageModelChatInformation & {
+		capabilities: LanguageModelChatInformation['capabilities'] & {
+			editTools?: readonly EndpointEditToolName[];
+		};
+	};
+
 	return {
 		id,
 		name: capabilities.name,
@@ -169,9 +178,10 @@ export function byokKnownModelToAPIInfo(providerName: string, id: string, capabi
 		multiplierNumeric: 0,
 		capabilities: {
 			toolCalling: capabilities.toolCalling,
-			imageInput: capabilities.vision
+			imageInput: capabilities.vision,
+			editTools: capabilities.editTools,
 		}
-	};
+	} satisfies LanguageModelChatInformationWithEditTools;
 }
 
 export function isBYOKEnabled(copilotToken: Omit<CopilotToken, 'token'>, capiClientService: ICAPIClientService): boolean {
