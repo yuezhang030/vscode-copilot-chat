@@ -400,7 +400,6 @@ export class CopilotCLISDK implements ICopilotCLISDK {
 	declare _serviceBrand: undefined;
 	private requestMap: Record<string, RequestDetails> = {};
 	private _ensureShimsPromise?: Promise<void>;
-	private _shimRootPromise?: Promise<string>;
 	constructor(
 		@IVSCodeExtensionContext private readonly extensionContext: IVSCodeExtensionContext,
 		@IEnvService private readonly envService: IEnvService,
@@ -433,42 +432,21 @@ export class CopilotCLISDK implements ICopilotCLISDK {
 		try {
 			// Ensure the node-pty shim exists before importing the SDK (required for CLI sessions)
 			await this._ensureShimsPromise;
-			// Note: In our packaged extension we vendor the SDK under `dist/node_modules/...`.
-			// When the SDK's `package.json` isn't present, Node's ESM resolver cannot import the
-			// package via its directory path and will throw a “Directory import ... is not supported”
-			// error. Import the entry file directly to avoid relying on package.json resolution.
-			return await import('@github/copilot/sdk/index.js') as typeof import('@github/copilot/sdk');
+			return await import('@github/copilot/sdk');
 		} catch (error) {
 			this.logService.error(`[CopilotCLISession] Failed to load @github/copilot/sdk: ${error}`);
 			throw error;
 		}
 	}
 
-	private async getShimRoot(): Promise<string> {
-		this._shimRootPromise ??= (async () => {
-			// In our packaged extension we vendor dependencies under `dist/node_modules/...`.
-			// Shims must be written into that same tree so `@github/copilot/sdk` can resolve them.
-			const distRoot = path.join(this.extensionContext.extensionPath, 'dist');
-			const vendoredSdkEntry = path.join(distRoot, 'node_modules', '@github', 'copilot', 'sdk', 'index.js');
-			if (await checkFileExists(vendoredSdkEntry)) {
-				return distRoot;
-			}
-
-			return this.extensionContext.extensionPath;
-		})();
-
-		return this._shimRootPromise;
-	}
-
 	protected async ensureShims(): Promise<void> {
-		const shimRoot = await this.getShimRoot();
-		const successfulPlaceholder = path.join(shimRoot, 'node_modules', '@github', 'copilot', 'shims.txt');
+		const successfulPlaceholder = path.join(this.extensionContext.extensionPath, 'node_modules', '@github', 'copilot', 'shims.txt');
 		if (await checkFileExists(successfulPlaceholder)) {
 			return;
 		}
 		await Promise.all([
-			ensureNodePtyShim(shimRoot, this.envService.appRoot, this.logService),
-			ensureRipgrepShim(shimRoot, this.envService.appRoot, this.logService)
+			ensureNodePtyShim(this.extensionContext.extensionPath, this.envService.appRoot, this.logService),
+			ensureRipgrepShim(this.extensionContext.extensionPath, this.envService.appRoot, this.logService)
 		]);
 		await fs.writeFile(successfulPlaceholder, 'Shims created successfully');
 	}
