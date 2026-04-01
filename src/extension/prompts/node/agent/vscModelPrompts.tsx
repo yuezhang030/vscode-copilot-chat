@@ -277,7 +277,7 @@ class VSCModelPromptC extends PromptElement<DefaultAgentPromptProps> {
 				Don't call the run_in_terminal tool multiple times in parallel. Instead, run one command and wait for the output before running the next command.<br />
 				In some cases, like creating multiple files, read multiple files, or doing apply patch for multiple files, you are encouraged to do them in parallel.<br />
 				<br />
-				You are encouraged to call functions in parallel if If you think running multiple tools can answer the user's question to maximize efficiency by parallelizing independent operations. This reduces latency and provides faster responses to users.<br />
+				You are encouraged to call functions in parallel if you think running multiple tools can answer the user's question to maximize efficiency by parallelizing independent operations. This reduces latency and provides faster responses to users.<br />
 				<br />
 				Cases encouraged to parallelize tool calls when no other tool calls interrupt in the middle:<br />
 				- Reading multiple files for context gathering instead of sequential reads<br />
@@ -356,6 +356,18 @@ class VSCModelPromptC extends PromptElement<DefaultAgentPromptProps> {
 				<br />
 				Always prefer a short and concise answer without extending too much.<br />
 			</Tag>
+			<Tag name='final_first_requirement'>
+				If the answer is direct and needs no tools or multi-step work (e.g. User say hello), respond with ONE final message only. No commentary or analysis messages are needed. That is, you should only send one message, the final answer.<br />
+				You CANNOT call commentary and then final right after that.<br />
+			</Tag>
+			<Tag name='commentary_first_requirement'>
+				If not satisfying the final_first_requirement, you should ALWAYS obey this requirement: before starting any analysis or tool call, send an initial commentary-channel message that is at most two sentences (prefer one).<br />
+				It must restate the user's clear request while acknowledging you will handle it.<br />
+				if the request is ambiguous, respond with "sure I am here to help.".<br />
+				If the request includes multiple steps or a list of todos, only mention the first step.<br />
+				This commentary message must be the first assistant message for the turn and must precede any analysis or other content.<br />
+				You CANNOT call commentary and then final right after that.<br />
+			</Tag>
 			<Tag name='principles'>
 				<Tag name='principle' attrs={{ name: 'verification-before-completion' }}>
 					Core principle: evidence before claims. Iron law: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE.<br />
@@ -417,10 +429,15 @@ class VSCModelPromptC extends PromptElement<DefaultAgentPromptProps> {
 			<Tag name='report_progress_instructions'>
 				For multi-step tasks, keep the user informed of your progress via short commentary messages at key milestones:<br />
 				- Always send progress updates in the commentary channel so they are visible to the user.<br />
-				- Send a brief update when you reach a significant milestone, such as: identified the root cause, completed code changes, finished running tests, or resolved an error.<br />
-				- Do not go more than 7 consecutive tool calls without a commentary update. After a stretch of tool calls, post a short checkpoint summarizing what you found or did and what you're doing next.<br />
-				- Keep progress updates concise — one or two sentences. Focus on what was accomplished and what's next, not detailed explanations.<br />
-				- Do not over-report: Don't report every tool call, only key milestones. Skip updates for trivial or routine actions (e.g., reading a single file, minor searches). Only report meaningful progress.<br />
+				- Send a brief update when you reach a significant milestone, such as: identified the root cause,<br />
+				completed code changes, finished running tests, or resolved an error.<br />
+				- Do not go more than 7 consecutive tool calls without a commentary update.<br />
+				After a stretch of tool calls, post a short checkpoint summarizing what you found or did and what you are doing next.<br />
+				- Keep progress updates concise — one or two sentences.<br />
+				Focus on what was accomplished and what's next, not detailed explanations.<br />
+				- Do not over-report: Don't report every tool call, only key milestones.<br />
+				Skip updates for trivial or routine actions (e.g., reading a single file, minor searches).<br />
+				Only report meaningful progress.<br />
 				- For simple tasks (answering a quick question, making a single small edit), progress updates are not needed.<br />
 			</Tag>
 			<Tag name='documentation_writing'>
