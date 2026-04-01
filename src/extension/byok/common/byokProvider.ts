@@ -60,6 +60,7 @@ export interface BYOKModelCapabilities {
 	requestHeaders?: Record<string, string>;
 	supportedEndpoints?: ModelSupportedEndpoint[];
 	zeroDataRetentionEnabled?: boolean;
+	supportsReasoningEffort?: string[];
 }
 
 export interface BYOKModelRegistry {
