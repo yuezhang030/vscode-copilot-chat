@@ -175,6 +175,7 @@ export class ChatMLFetcherImpl extends AbstractChatMLFetcher {
 
 		const baseTelemetry = TelemetryData.createAndMarkAsIssued({
 			...telemetryProperties,
+			headerRequestId: ourRequestId,
 			baseModel: chatEndpoint.model,
 			uiKind: ChatLocation.toString(location)
 		});
@@ -262,9 +263,18 @@ export class ChatMLFetcherImpl extends AbstractChatMLFetcher {
 						?? (requestBody as Record<string, unknown>).system
 						?? (requestBody as Record<string, unknown>).instructions;
 					if (systemContent) {
-						const systemText = typeof systemContent === 'string'
-							? systemContent
-							: JSON.stringify(systemContent);
+						let systemText: string;
+						if (typeof systemContent === 'string') {
+							systemText = systemContent;
+						} else if (Array.isArray(systemContent)) {
+							// Anthropic format: array of content blocks — extract text only,
+							// dropping metadata like cache_control so the value is stable across turns.
+							systemText = (systemContent as Array<{ text?: string }>)
+								.map(b => b.text ?? '')
+								.join('\n');
+						} else {
+							systemText = JSON.stringify(systemContent);
+						}
 						otelInferenceSpan.setAttribute(GenAiAttr.SYSTEM_INSTRUCTIONS, systemText);
 					}
 				}
@@ -1077,6 +1087,8 @@ export class ChatMLFetcherImpl extends AbstractChatMLFetcher {
 		});
 
 		const modelRequestId = getRequestId(connection.responseHeaders);
+		// Preserve ourRequestId as headerRequestId if the server didn't echo x-request-id
+		modelRequestId.headerRequestId = modelRequestId.headerRequestId || ourRequestId;
 		telemetryData.extendWithRequestId(modelRequestId);
 
 		for (const [key, value] of Object.entries(request)) {
@@ -1085,8 +1097,6 @@ export class ChatMLFetcherImpl extends AbstractChatMLFetcher {
 			} // Skip messages (PII)
 			telemetryData.properties[`request.option.${key}`] = JSON.stringify(value) ?? 'undefined';
 		}
-
-		telemetryData.properties['headerRequestId'] = ourRequestId;
 		this._telemetryService.sendGHTelemetryEvent('request.sent', telemetryData.properties, telemetryData.measurements);
 
 		const requestStart = Date.now();
@@ -1387,6 +1397,8 @@ export class ChatMLFetcherImpl extends AbstractChatMLFetcher {
 			// This ID is hopefully the one the same as ourRequestId, but it is not guaranteed.
 			// If they are different then we will override the original one we set in telemetryData above.
 			const modelRequestId = getRequestId(response.headers);
+			// Preserve ourRequestId as headerRequestId if the server didn't echo x-request-id
+			modelRequestId.headerRequestId = modelRequestId.headerRequestId || ourRequestId;
 			telemetryData.extendWithRequestId(modelRequestId);
 
 			// TODO: Add response length (requires parsing)
