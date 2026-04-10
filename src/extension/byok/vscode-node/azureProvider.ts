@@ -104,6 +104,11 @@ export class AzureBYOKModelProvider extends AbstractCustomOAIBYOKModelProvider {
 
 		const url = this.resolveUrl(model.id, model.url);
 		const modelConfiguration = model.configuration?.models?.find(m => m.id === model.id);
+		const configuredEditTools = model.capabilities?.editTools;
+		const filteredEditTools = configuredEditTools?.filter(isEndpointEditToolName);
+		if (configuredEditTools?.length || filteredEditTools?.length) {
+			this._logService.trace(`BYOK(${this._name}) configured editTools: ${JSON.stringify(configuredEditTools)} (filtered: ${JSON.stringify(filteredEditTools)})`);
+		}
 		const modelCapabilities = {
 			maxInputTokens: model.maxInputTokens,
 			maxOutputTokens: model.maxOutputTokens,
@@ -114,10 +119,13 @@ export class AzureBYOKModelProvider extends AbstractCustomOAIBYOKModelProvider {
 			thinking: modelConfiguration?.thinking,
 			streaming: modelConfiguration?.streaming,
 			requestHeaders: modelConfiguration?.requestHeaders,
-			editTools: model.capabilities?.editTools?.filter(isEndpointEditToolName),
+			editTools: filteredEditTools,
 			zeroDataRetentionEnabled: modelConfiguration?.zeroDataRetentionEnabled
 		};
 		const modelInfo = resolveModelInfo(model.id, this._name, undefined, modelCapabilities);
+		if (modelInfo.editTools?.length || filteredEditTools?.length) {
+			this._logService.trace(`BYOK(${this._name}) effective editTools: ${JSON.stringify(modelInfo.editTools)} (from config: ${JSON.stringify(filteredEditTools)})`);
+		}
 
 		const openAIChatEndpoint = this._instantiationService.createInstance(
 			AzureOpenAIEndpoint,

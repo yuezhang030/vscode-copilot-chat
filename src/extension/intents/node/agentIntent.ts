@@ -79,11 +79,19 @@ export const getAgentTools = async (accessor: ServicesAccessor, request: vscode.
 	const experimentationService = accessor.get<IExperimentationService>(IExperimentationService);
 	const endpointProvider = accessor.get<IEndpointProvider>(IEndpointProvider);
 	const editToolLearningService = accessor.get<IEditToolLearningService>(IEditToolLearningService);
+	const logService = accessor.get<ILogService>(ILogService);
 	const model = await endpointProvider.getChatEndpoint(request);
+
+	if (model.supportedEditTools?.length || model.isExtensionContributed) {
+		logService.trace(`getAgentTools: family=${model.family} name=${model.name} isExtensionContributed=${!!model.isExtensionContributed} supportedEditTools=${JSON.stringify(model.supportedEditTools)}`);
+	}
 
 	const allowTools: Record<string, boolean> = {};
 
 	const learned = editToolLearningService.getPreferredEndpointEditTool(model);
+	if (model.supportedEditTools?.length || model.isExtensionContributed) {
+		logService.trace(`getAgentTools: preferred edit tools=${JSON.stringify(learned)} (supportedEditTools present=${!!model.supportedEditTools?.length})`);
+	}
 	if (learned) { // a learning-enabled (BYOK) model, we should go with what it prefers
 		allowTools[ToolName.EditFile] = learned.includes(ToolName.EditFile);
 		allowTools[ToolName.ReplaceString] = learned.includes(ToolName.ReplaceString);
@@ -149,6 +157,10 @@ export const getAgentTools = async (accessor: ServicesAccessor, request: vscode.
 		// Must return undefined to fall back to other checks
 		return undefined;
 	});
+
+	if (model.supportedEditTools?.length || model.isExtensionContributed) {
+		logService.trace(`getAgentTools: allowed edit tools apply_patch=${!!allowTools[ToolName.ApplyPatch]} replace_string=${!!allowTools[ToolName.ReplaceString]} multi_replace_string=${!!allowTools[ToolName.MultiReplaceString]} insert_edit=${!!allowTools[ToolName.EditFile]}`);
+	}
 
 	if (modelSupportsSimplifiedApplyPatchInstructions(model) && configurationService.getExperimentBasedConfig(ConfigKey.Advanced.Gpt5AlternativePatch, experimentationService)) {
 		const ap = tools.findIndex(t => t.name === ToolName.ApplyPatch);

@@ -116,7 +116,7 @@ function isSystemReminderBlock(text: string): boolean {
  * Used for backwards compatibility with legacy sessions where system-reminders
  * were concatenated with user text in a single string.
  *
- * TODO: Remove this function after a few releases (added in 0.38.x) once legacy
+ * TODO: Remove this function after a few releases (added in 0.227.x) once legacy
  * sessions with concatenated system-reminders are no longer common.
  */
 function stripSystemReminders(text: string): string {

@@ -268,7 +268,6 @@ class VSCModelPromptB extends PromptElement<DefaultAgentPromptProps> {
 	}
 }
 
-
 class VSCModelPromptC extends PromptElement<DefaultAgentPromptProps> {
 	async render(state: void, sizing: PromptSizing) {
 		const tools = detectToolCapabilities(this.props.availableTools);
