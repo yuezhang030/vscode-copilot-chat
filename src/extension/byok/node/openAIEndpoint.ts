@@ -12,7 +12,7 @@ import { ChatEndpoint } from '../../../platform/endpoint/node/chatEndpoint';
 import { ILogService } from '../../../platform/log/common/logService';
 import { isOpenAiFunctionTool } from '../../../platform/networking/common/fetch';
 import { createCapiRequestBody, IChatEndpoint, ICreateEndpointBodyOptions, IEndpointBody, IMakeChatRequestOptions } from '../../../platform/networking/common/networking';
-import { openAIContextManagementCompactionType, RawMessageConversionCallback } from '../../../platform/networking/common/openai';
+import { RawMessageConversionCallback } from '../../../platform/networking/common/openai';
 import { IChatWebSocketManager } from '../../../platform/networking/node/chatWebSocketManager';
 import { IExperimentationService } from '../../../platform/telemetry/common/nullExperimentationService';
 import { ITokenizerProvider } from '../../../platform/tokenizer/node/tokenizer';
@@ -236,27 +236,19 @@ export class OpenAIEndpoint extends ChatEndpoint {
 
 	override createRequestBody(options: ICreateEndpointBodyOptions): IEndpointBody {
 		if (this.useResponsesApi) {
-			// Handle Responses API: same as CAPI Responses stateless — only strip
-			// server-state replay items that a third-party backend cannot decode.
-			options.ignoreStatefulMarker = true;
+			// Handle Responses API: customize the body directly
+			options.ignoreStatefulMarker = false;
 			const body = super.createRequestBody(options);
-			body.store = false;
+			body.store = true;
 			body.n = undefined;
 			body.stream_options = undefined;
-			body.previous_response_id = undefined;
-			// When store=false, the server never persists rs_* reasoning and compaction items,
-			// so replaying them on the next turn causes a 400 "Item not found" error.
-			if (body.input) {
-				body.input = body.input.filter(item => {
-					if (!item || typeof item !== 'object' || !('type' in item)) {
-						return true;
-					}
-
-					return item.type !== 'reasoning' && item.type.toString() !== openAIContextManagementCompactionType;
-				});
-			}
 			if (!this.modelMetadata.capabilities.supports.thinking) {
 				body.reasoning = undefined;
+				body.include = undefined;
+			}
+			if (body.previous_response_id && (!body.previous_response_id.startsWith('resp_') || this.modelMetadata.zeroDataRetentionEnabled)) {
+				// Don't use a response ID from CAPI or when zero data retention is enabled
+				body.previous_response_id = undefined;
 			}
 			return body;
 		} else {
@@ -327,8 +319,8 @@ export class OpenAIEndpoint extends ChatEndpoint {
 	}
 
 	public override async makeChatRequest2(options: IMakeChatRequestOptions, token: CancellationToken): Promise<ChatResponse> {
-		// Apply ignoreStatefulMarker: true for initial request
-		const modifiedOptions: IMakeChatRequestOptions = { ...options, ignoreStatefulMarker: true };
+		// Apply ignoreStatefulMarker: false for initial request
+		const modifiedOptions: IMakeChatRequestOptions = { ...options, ignoreStatefulMarker: false };
 		const response = await super.makeChatRequest2(modifiedOptions, token);
 		return hydrateBYOKErrorMessages(response);
 	}
