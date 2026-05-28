@@ -81,8 +81,7 @@ function buildConfigurationSchema(endpoint: IChatEndpoint): { configurationSchem
 							case 'none': return vscode.l10n.t('No reasoning applied');
 							case 'low': return vscode.l10n.t('Faster responses with less reasoning');
 							case 'medium': return vscode.l10n.t('Balanced reasoning and speed');
-							case 'high': return vscode.l10n.t('Greater reasoning depth but slower');
-							case 'xhigh': return vscode.l10n.t('Maximum reasoning depth but slower');
+							case 'high': return vscode.l10n.t('Maximum reasoning depth');
 							default: return level;
 						}
 					}),
@@ -684,8 +683,9 @@ export class CopilotLanguageModelWrapper extends Disposable {
 		let thinkingActive = false;
 		const finishCallback: FinishedCallback = async (_text, index, delta): Promise<undefined> => {
 			if (delta.thinking) {
-				// Show thinking progress for unencrypted thinking deltas
-				if (!isEncryptedThinkingDelta(delta.thinking)) {
+				if (isEncryptedThinkingDelta(delta.thinking)) {
+					progress.report(new vscode.LanguageModelThinkingPart('', delta.thinking.id, { encrypted: delta.thinking.encrypted }));
+				} else {
 					const text = delta.thinking.text ?? '';
 					progress.report(new vscode.LanguageModelThinkingPart(text, delta.thinking.id, delta.thinking.metadata));
 					thinkingActive = true;

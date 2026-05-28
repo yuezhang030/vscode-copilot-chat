@@ -74,9 +74,7 @@ export function createResponsesRequestBody(accessor: ServicesAccessor, options: 
 	const summaryConfig = configService.getExperimentBasedConfig(ConfigKey.ResponsesApiReasoningSummary, expService);
 	const shouldDisableReasoningSummary = endpoint.family === 'gpt-5.3-codex-spark-preview';
 	const effortFromSetting = configService.getConfig(ConfigKey.TeamInternal.ResponsesApiReasoningEffort);
-	const effort = endpoint.supportsReasoningEffort?.length
-		? (effortFromSetting || options.reasoningEffort || 'medium')
-		: undefined;
+	const effort = effortFromSetting || options.reasoningEffort || 'medium';
 	const summary = summaryConfig === 'off' || shouldDisableReasoningSummary ? undefined : summaryConfig;
 	if (effort || summary) {
 		body.reasoning = {
@@ -560,7 +558,7 @@ export class OpenAIResponsesProcessor {
 							// CAPI models don't stream the reasoning summary for some reason, byok do, so don't duplicate it
 							text: this.hasReceivedReasoningSummary ?
 								undefined :
-								chunk.item.summary.map(s => s.text),
+								(chunk.item.summary?.map(s => s.text) ?? []),
 							encrypted: chunk.item.encrypted_content,
 						} : undefined
 					});
@@ -589,6 +587,18 @@ export class OpenAIResponsesProcessor {
 					}
 				});
 			case 'response.completed':
+				for (const item of chunk.response.output) {
+					if (item.type === 'reasoning' && item.encrypted_content) {
+						onProgress({
+							text: '',
+							thinking: {
+								id: item.id,
+								text: item.summary?.map(s => s.text) ?? [],
+								encrypted: item.encrypted_content,
+							}
+						});
+					}
+				}
 				onProgress({ text: '', statefulMarker: chunk.response.id });
 				return {
 					blockFinished: true,
